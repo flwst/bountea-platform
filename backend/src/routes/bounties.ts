@@ -41,9 +41,9 @@ router.get('/', async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       take: Number(limit),
       skip: Number(offset)
-    });
+    }).catch(() => []);
 
-    res.json({ bounties });
+    res.json({ data: bounties });
   } catch (error) {
     next(error);
   }

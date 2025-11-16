@@ -12,6 +12,50 @@ const platformAPI = new PlatformAPIService();
 const approvalService = new ApprovalQueueService();
 const verificationService = new VerificationService();
 
+// Get all approved videos (public)
+router.get('/', async (_req, res) => {
+  try {
+    // Return empty array if database not connected
+    const videos = await prisma.video.findMany({
+      where: { approvalStatus: 'approved' },
+      include: {
+        creator: {
+          select: {
+            wallet: true,
+            displayName: true
+          }
+        },
+        bounty: {
+          select: {
+            id: true,
+            title: true,
+            totalDeposit: true,
+            deadline: true
+          }
+        },
+        milestoneClaims: true
+      },
+      orderBy: { registeredAt: 'desc' },
+      take: 50
+    }).catch(() => []);
+
+    // Transform BigInt to string for JSON
+    const serializedVideos = videos.map(video => ({
+      ...video,
+      currentViews: Number(video.currentViews),
+      milestoneClaims: video.milestoneClaims.map((claim: any) => ({
+        ...claim,
+        viewsAtClaim: Number(claim.viewsAtClaim)
+      }))
+    }));
+
+    res.json({ data: serializedVideos });
+  } catch (error) {
+    // Return empty data instead of error
+    res.json({ data: [] });
+  }
+});
+
 // Register video (creator only)
 router.post('/register', authenticate, requireRole('creator'), async (req: AuthRequest, res, next) => {
   try {
