@@ -25,7 +25,7 @@ export default function RegisterVideoPage() {
 
   const [selectedBountyId, setSelectedBountyId] = useState<string>('');
   const [videoUrl, setVideoUrl] = useState('');
-  const [platform, setPlatform] = useState<'youtube' | 'tiktok'>('youtube');
+  const [platform, setPlatform] = useState<'youtube' | 'tiktok' | 'twitter' | 'instagram'>('youtube');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -52,28 +52,26 @@ export default function RegisterVideoPage() {
 
   const selectedBounty = bounties.find((b) => b.id.toString() === selectedBountyId);
 
-  // Extract video ID from URL
-  const extractVideoId = (url: string, platform: 'youtube' | 'tiktok'): string | null => {
+  // Validate video URL
+  const isValidVideoUrl = (url: string): boolean => {
     try {
       if (platform === 'youtube') {
-        // Handle various YouTube URL formats
         const patterns = [
           /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
           /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
           /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
         ];
-        for (const pattern of patterns) {
-          const match = url.match(pattern);
-          if (match) return match[1];
-        }
-      } else {
-        // TikTok video ID
-        const match = url.match(/tiktok\.com\/@[\w.-]+\/video\/(\d+)/);
-        if (match) return match[1];
+        return patterns.some(pattern => pattern.test(url));
+      } else if (platform === 'tiktok') {
+        return /tiktok\.com\/@[\w.-]+\/video\/(\d+)/.test(url);
+      } else if (platform === 'twitter') {
+        return /(twitter\.com|x\.com)\/\w+\/status\/(\d+)/.test(url);
+      } else if (platform === 'instagram') {
+        return /instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/.test(url);
       }
-      return null;
+      return false;
     } catch {
-      return null;
+      return false;
     }
   };
 
@@ -81,8 +79,12 @@ export default function RegisterVideoPage() {
     e.preventDefault();
     setError('');
 
-    if (!isConnected) {
+    // Check if we have a valid auth token
+    const token = localStorage.getItem('auth-token');
+    
+    if (!isConnected || !token) {
       try {
+        // Force re-authentication to get JWT token
         await connect();
       } catch (err) {
         setError('Please connect your wallet to continue');
@@ -100,21 +102,18 @@ export default function RegisterVideoPage() {
       return;
     }
 
-    const videoId = extractVideoId(videoUrl, platform);
-    if (!videoId) {
-      setError(`Invalid ${platform} URL format`);
+    if (!isValidVideoUrl(videoUrl)) {
+      setError(`Invalid ${platform} URL format. Please check the URL and try again.`);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Register video via API
+      // Register video via API - backend handles URL parsing
       await api.videos.register({
         bountyId: parseInt(selectedBountyId),
-        videoId,
-        url: videoUrl,
-        platform,
+        videoUrl: videoUrl
       });
 
       setSuccess(true);
@@ -125,7 +124,11 @@ export default function RegisterVideoPage() {
       }, 2000);
     } catch (err: any) {
       console.error('Registration failed:', err);
-      setError(err.response?.data?.message || 'Failed to register video. Please try again.');
+      
+      // Extract the error message from the response
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to register video. Please try again.';
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -269,13 +272,18 @@ export default function RegisterVideoPage() {
           <CardContent className="space-y-4">
             <div>
               <Label htmlFor="platform">Platform</Label>
-              <Select value={platform} onValueChange={(v) => setPlatform(v as 'youtube' | 'tiktok')}>
+              <Select
+                value={platform}
+                onValueChange={(v) => setPlatform(v as 'youtube' | 'tiktok' | 'twitter' | 'instagram')}
+              >
                 <SelectTrigger id="platform" className="mt-2">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="youtube">YouTube</SelectItem>
-                  <SelectItem value="tiktok">TikTok</SelectItem>
+                  <SelectItem value="youtube">🎥 YouTube</SelectItem>
+                  <SelectItem value="tiktok">📱 TikTok</SelectItem>
+                  <SelectItem value="twitter">🐦 Twitter/X</SelectItem>
+                  <SelectItem value="instagram">📷 Instagram</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -287,15 +295,22 @@ export default function RegisterVideoPage() {
                 type="url"
                 placeholder={
                   platform === 'youtube'
-                    ? 'https://youtube.com/watch?v=...'
-                    : 'https://tiktok.com/@username/video/...'
+                    ? 'https://youtube.com/watch?v=dQw4w9WgXcQ'
+                    : platform === 'tiktok'
+                    ? 'https://tiktok.com/@user/video/1234567890'
+                    : platform === 'twitter'
+                    ? 'https://twitter.com/user/status/1234567890'
+                    : 'https://instagram.com/p/ABC123xyz/'
                 }
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
                 className="mt-2"
               />
               <p className="text-xs text-white/40 mt-1">
-                Paste the full URL of your video
+                {platform === 'youtube' && 'Paste the full YouTube URL (youtube.com or youtu.be)'}
+                {platform === 'tiktok' && 'Paste the full TikTok video URL'}
+                {platform === 'twitter' && 'Paste the full Twitter/X post URL with video'}
+                {platform === 'instagram' && 'Paste the full Instagram post or reel URL'}
               </p>
             </div>
           </CardContent>

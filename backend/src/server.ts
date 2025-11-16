@@ -7,6 +7,7 @@ import { logger } from './utils/logger';
 import { errorHandler } from './middleware/error-handler';
 
 // Routes
+import authRouter from './routes/auth';
 import bountiesRouter from './routes/bounties';
 import videosRouter from './routes/videos';
 import adminRouter from './routes/admin';
@@ -40,6 +41,7 @@ app.get('/health', (_req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/bounties', bountiesRouter);
 app.use('/api/videos', videosRouter);
 app.use('/api/admin', adminRouter);

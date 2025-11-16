@@ -61,15 +61,44 @@ router.post('/register', authenticate, requireRole('creator'), async (req: AuthR
   try {
     const { bountyId, videoUrl } = req.body;
 
-    // Validate YouTube URL
-    if (!platformAPI.isValidYouTubeUrl(videoUrl)) {
-      throw new AppError(400, 'Invalid YouTube URL');
+    console.log('=== VIDEO REGISTRATION START ===');
+    console.log('BountyID:', bountyId);
+    console.log('VideoURL:', videoUrl);
+    console.log('User:', req.user?.wallet);
+
+    // Validate video URL for any platform
+    if (!platformAPI.isValidVideoUrl(videoUrl)) {
+      throw new AppError(400, 'Invalid video URL. Supported platforms: YouTube, TikTok, Twitter, Instagram');
     }
 
-    const videoId = platformAPI.extractYouTubeVideoId(videoUrl);
-    if (!videoId) {
-      throw new AppError(400, 'Could not extract video ID');
+    // Detect platform and extract ID
+    const platform = platformAPI.detectPlatform(videoUrl);
+    if (!platform) {
+      throw new AppError(400, 'Could not detect video platform');
     }
+
+    let videoId: string | null = null;
+    switch (platform) {
+      case 'youtube':
+        videoId = platformAPI.extractYouTubeVideoId(videoUrl);
+        break;
+      case 'tiktok':
+        videoId = platformAPI.extractTikTokVideoId(videoUrl);
+        break;
+      case 'twitter':
+        videoId = platformAPI.extractTwitterTweetId(videoUrl);
+        break;
+      case 'instagram':
+        videoId = platformAPI.extractInstagramPostId(videoUrl);
+        break;
+    }
+
+    if (!videoId) {
+      throw new AppError(400, `Could not extract video ID from ${platform} URL`);
+    }
+
+    console.log('Platform:', platform);
+    console.log('VideoID:', videoId);
 
     // Check if video already registered
     const existing = await prisma.video.findFirst({
@@ -83,15 +112,20 @@ router.post('/register', authenticate, requireRole('creator'), async (req: AuthR
       throw new AppError(400, 'Video already registered for this bounty');
     }
 
-    // Get video stats from YouTube
-    const stats = await platformAPI.getYouTubeVideoStats(videoId);
+    // Get video stats
+    console.log('Fetching video stats...');
+    const stats = await platformAPI.getVideoStats(videoId, platform);
+    console.log('Stats retrieved:', {
+      views: stats.viewCount,
+      title: stats.title.substring(0, 50)
+    });
 
     // Create video registration
     const video = await prisma.video.create({
       data: {
         bountyId: Number(bountyId),
         creatorId: req.user!.id,
-        platform: 'youtube',
+        platform,
         videoId,
         videoUrl,
         title: stats.title,
@@ -102,6 +136,8 @@ router.post('/register', authenticate, requireRole('creator'), async (req: AuthR
         approvalStatus: 'pending'
       }
     });
+
+    console.log('Video registered successfully:', video.id);
 
     // Get milestone to process
     const bounty = await prisma.bounty.findUnique({
@@ -115,8 +151,21 @@ router.post('/register', authenticate, requireRole('creator'), async (req: AuthR
         .catch(err => console.error('AI processing error:', err));
     }
 
-    res.status(201).json({ video });
-  } catch (error) {
+    console.log('=== VIDEO REGISTRATION COMPLETE ===');
+
+    // Serialize BigInt for JSON
+    const serializedVideo = {
+      ...video,
+      currentViews: Number(video.currentViews),
+      bountyId: Number(video.bountyId),
+      creatorId: video.creatorId
+    };
+
+    res.status(201).json({ video: serializedVideo });
+  } catch (error: any) {
+    console.error('=== VIDEO REGISTRATION ERROR ===');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
     next(error);
   }
 });
@@ -251,6 +300,71 @@ router.post('/:videoId/record-claim', authenticate, requireRole('creator'), asyn
     });
 
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update video views manually (creator only)
+router.post('/:videoId/update-views', authenticate, requireRole('creator'), async (req: AuthRequest, res, next) => {
+  try {
+    const videoId = Number(req.params.videoId);
+
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+      include: {
+        bounty: {
+          include: {
+            milestones: { orderBy: { milestoneOrder: 'asc' } }
+          }
+        },
+        milestoneClaims: true
+      }
+    });
+
+    if (!video) {
+      throw new AppError(404, 'Video not found');
+    }
+
+    if (video.creatorId !== req.user!.id) {
+      throw new AppError(403, 'Not your video');
+    }
+
+    // Get current stats from YouTube
+    const stats = await platformAPI.getYouTubeVideoStats(video.videoId);
+
+    // Update views in database
+    await prisma.video.update({
+      where: { id: videoId },
+      data: {
+        currentViews: BigInt(stats.viewCount),
+        lastChecked: new Date()
+      }
+    });
+
+    // Find claimable milestones (views reached, not yet claimed, video approved)
+    const claimable = video.bounty.milestones.filter(milestone => {
+      const alreadyClaimed = video.milestoneClaims.some(
+        claim => claim.milestoneId === milestone.id
+      );
+      return (
+        stats.viewCount >= milestone.viewsRequired &&
+        !alreadyClaimed &&
+        video.approvalStatus === 'approved'
+      );
+    });
+
+    res.json({
+      success: true,
+      currentViews: stats.viewCount,
+      lastChecked: new Date(),
+      claimableMilestones: claimable.map(m => ({
+        id: m.id,
+        viewsRequired: m.viewsRequired,
+        rewardAmount: m.rewardAmount,
+        milestoneOrder: m.milestoneOrder
+      }))
+    });
   } catch (error) {
     next(error);
   }

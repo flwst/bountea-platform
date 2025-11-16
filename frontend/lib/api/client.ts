@@ -76,8 +76,9 @@ export const api = {
     getById: (id: number) => apiClient.get(`/videos/${id}`),
     register: (data: any) => apiClient.post('/videos/register', data),
     getProgress: (id: number) => apiClient.get(`/videos/${id}/progress`),
-    claim: (id: number, milestoneId: number) => 
+    claim: (id: number, milestoneId: number) =>
       apiClient.post(`/videos/${id}/claim`, { milestoneId }),
+    updateViews: (id: number) => apiClient.post(`/videos/${id}/update-views`),
   },
   
   // Creator

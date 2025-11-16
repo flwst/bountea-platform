@@ -1,20 +1,24 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWalletStore } from '@/lib/stores/wallet-store';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Video, Eye, Plus, TrendingUp } from 'lucide-react';
+import { DollarSign, Video, Eye, Plus, TrendingUp, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import type { DashboardStats, Video as VideoType } from '@/types';
 
 export default function CreatorDashboardPage() {
   const { address, isConnected } = useWalletStore();
   const { connect } = useAuth();
+  const queryClient = useQueryClient();
+  const [updatingVideo, setUpdatingVideo] = useState<number | null>(null);
 
   // Fetch creator stats
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
@@ -38,16 +42,42 @@ export default function CreatorDashboardPage() {
     enabled: !!address,
   });
 
+  // Handle update views
+  const handleUpdateViews = async (videoId: number) => {
+    setUpdatingVideo(videoId);
+    try {
+      const response = await api.videos.updateViews(videoId);
+      
+      // Refresh videos data
+      await queryClient.invalidateQueries({ queryKey: ['creator-videos', address] });
+      
+      const data = response.data;
+      if (data.claimableMilestones && data.claimableMilestones.length > 0) {
+        toast.success(
+          `Views updated to ${data.currentViews.toLocaleString()}! ` +
+          `${data.claimableMilestones.length} milestone(s) ready to claim!`
+        );
+      } else {
+        toast.success(`Views updated to ${data.currentViews.toLocaleString()}`);
+      }
+    } catch (error: any) {
+      console.error('Update views failed:', error);
+      toast.error(error.response?.data?.message || 'Failed to update views');
+    } finally {
+      setUpdatingVideo(null);
+    }
+  };
+
   // Handle claim milestone
   const handleClaim = async (videoId: number, milestoneId: number) => {
     try {
       await api.videos.claim(videoId, milestoneId);
       // Refresh data after claim
-      // queryClient.invalidateQueries(['creator-videos', address]);
-      alert('Claim successful! Transaction submitted.');
+      await queryClient.invalidateQueries({ queryKey: ['creator-videos', address] });
+      toast.success('Claim successful! Transaction submitted.');
     } catch (error) {
       console.error('Claim failed:', error);
-      alert('Claim failed. Please try again.');
+      toast.error('Claim failed. Please try again.');
     }
   };
 
@@ -229,8 +259,18 @@ export default function CreatorDashboardPage() {
                         )}
 
                         {/* Actions */}
-                        {canClaim && nextMilestone && (
-                          <div className="mt-4">
+                        <div className="mt-4 flex gap-2">
+                          <Button
+                            onClick={() => handleUpdateViews(video.id)}
+                            disabled={updatingVideo === video.id}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${updatingVideo === video.id ? 'animate-spin' : ''}`} />
+                            {updatingVideo === video.id ? 'Checking...' : 'Check Views Now'}
+                          </Button>
+                          
+                          {canClaim && nextMilestone && (
                             <Button
                               onClick={() => handleClaim(video.id, nextMilestone.id)}
                               className="bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6]"
@@ -238,8 +278,8 @@ export default function CreatorDashboardPage() {
                               <TrendingUp className="w-4 h-4 mr-2" />
                               Claim ${nextMilestone.rewardAmount}
                             </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
