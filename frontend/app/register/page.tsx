@@ -123,10 +123,13 @@ export default function RegisterVideoPage() {
         router.push('/dashboard');
       }, 2000);
     } catch (err: any) {
-      console.error('Registration failed:', err);
-      
       // Extract the error message from the response
       const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to register video. Please try again.';
+      
+      // Only log unexpected errors (not validation errors like 400)
+      if (!err.response || err.response.status >= 500) {
+        console.error('Registration failed:', err);
+      }
       
       setError(errorMessage);
     } finally {

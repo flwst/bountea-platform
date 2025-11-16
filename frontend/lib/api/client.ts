@@ -37,24 +37,27 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // Server responded with error status
-      console.error('API Error:', error.response.data);
+      // Only log real server errors (500+), not validation errors (400)
+      if (error.response.status >= 500) {
+        console.error('Server Error:', error.response.status, error.response.data);
+      }
       
       // Handle 401 Unauthorized
       if (error.response.status === 401) {
         // Clear auth and redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('auth-token');
-          // Optionally redirect to login
-          // window.location.href = '/login';
+          console.warn('Session expired. Please reconnect your wallet.');
         }
       }
+      
+      // 400 errors (validation/business logic) are not logged - they're expected user errors
     } else if (error.request) {
       // Request made but no response
-      console.error('Network Error:', error.request);
+      console.error('Network Error: Unable to reach server');
     } else {
       // Something else happened
-      console.error('Error:', error.message);
+      console.error('Request Error:', error.message);
     }
     
     return Promise.reject(error);
