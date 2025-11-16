@@ -26,25 +26,54 @@ export interface Creator {
 
 export interface Bounty {
   id: number;
+  contractAddress: string;
+  assetId: number;
+  brandId: string;
   title: string;
   description: string;
   requirements: string;
-  totalReward: number;
-  videoCount: number;
+  contentGuidelines?: string | null;
+  deadline: string | Date;
   maxVideos: number;
-  deadline: Date;
+  minDurationSeconds?: number | null;
+  maxDurationSeconds?: number | null;
   status: 'active' | 'completed' | 'expired';
-  platform: 'youtube' | 'tiktok' | 'both';
+  totalDeposit: string;
+  remainingFunds: string;
+  totalPaid: string;
+  videoCount: number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  activatedAt?: string | Date | null;
+  completedAt?: string | Date | null;
+  deletedAt?: string | Date | null;
+  brand: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
   milestones: Milestone[];
-  brandAddress: string;
-  createdAt: Date;
+  platforms: BountyPlatform[];
+  _count?: {
+    videos: number;
+  };
+}
+
+export interface BountyPlatform {
+  id: number;
+  bountyId: number;
+  platform: string;
+  createdAt: string | Date;
 }
 
 export interface Milestone {
   id: number;
+  bountyId: number;
   viewsRequired: number;
   rewardAmount: string;
-  claimed: boolean;
+  milestoneOrder: number;
+  createdAt: string | Date;
+  claimed?: boolean;
 }
 
 export interface Video {

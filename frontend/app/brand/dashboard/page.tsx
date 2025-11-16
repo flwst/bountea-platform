@@ -35,9 +35,10 @@ export default function BrandDashboardPage() {
     queryFn: async () => {
       if (!address) return [];
       const response = await api.bounties.getAll();
-      const allBounties = Array.isArray(response.data) ? response.data : [];
-      // Filter by brand address
-      return allBounties.filter((b: Bounty) => b.brandAddress === address);
+      // Backend returns {data: [...]}, Axios wraps it in response.data
+      const allBounties = Array.isArray(response.data.data) ? response.data.data : [];
+      // Filter by brand ID
+      return allBounties.filter((b: Bounty) => b.brandId === address);
     },
     enabled: !!address,
   });
@@ -171,10 +172,15 @@ export default function BrandDashboardPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {bounties.map((bounty) => {
-              const daysLeft = getDaysLeft(bounty.deadline);
-              const progress = bounty.maxVideos > 0 
-                ? (bounty.videoCount / bounty.maxVideos) * 100 
+              const daysLeft = getDaysLeft(new Date(bounty.deadline));
+              const progress = bounty.maxVideos > 0
+                ? (bounty.videoCount / bounty.maxVideos) * 100
                 : 0;
+              const totalReward = bounty.milestones?.reduce(
+                (sum, m) => sum + parseFloat(m.rewardAmount),
+                0
+              ) || 0;
+              const platform = bounty.platforms?.[0]?.platform || 'youtube';
 
               return (
                 <Card key={bounty.id} className="hover:border-white/20 transition-colors">
@@ -204,7 +210,7 @@ export default function BrandDashboardPage() {
                       <div>
                         <p className="text-white/60">Total Reward</p>
                         <p className="font-semibold text-green-500">
-                          ${bounty.totalReward}
+                          ${totalReward.toLocaleString()}
                         </p>
                       </div>
                       <div>
@@ -215,7 +221,7 @@ export default function BrandDashboardPage() {
                       </div>
                       <div>
                         <p className="text-white/60">Platform</p>
-                        <p className="font-semibold capitalize">{bounty.platform}</p>
+                        <p className="font-semibold capitalize">{platform}</p>
                       </div>
                       <div>
                         <p className="text-white/60">Time Left</p>

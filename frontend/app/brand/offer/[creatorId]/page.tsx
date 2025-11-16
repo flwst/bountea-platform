@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useWalletStore } from '@/lib/stores/wallet-store';
@@ -23,10 +23,13 @@ interface BonusMilestone {
 }
 
 interface Props {
-  params: { creatorId: string };
+  params: Promise<{ creatorId: string }>;
 }
 
 export default function MakeOfferPage({ params }: Props) {
+  // Unwrap params Promise (Next.js 15 requirement)
+  const { creatorId } = use(params);
+  
   const router = useRouter();
   const { address, isConnected } = useWalletStore();
   const { connect } = useAuth();
@@ -44,11 +47,18 @@ export default function MakeOfferPage({ params }: Props) {
   });
 
   // Fetch creator info
-  const { data: creator, isLoading } = useQuery<Creator>({
-    queryKey: ['creator', params.creatorId],
+  const { data: creator, isLoading } = useQuery({
+    queryKey: ['creator', creatorId],
     queryFn: async () => {
-      const response = await api.creator.getProfile(params.creatorId);
-      return response.data;
+      const [profileResponse, statsResponse] = await Promise.all([
+        api.creator.getProfile(creatorId),
+        api.creator.getStats(creatorId)
+      ]);
+      return {
+        ...profileResponse.data,
+        address: profileResponse.data.wallet,
+        stats: statsResponse.data
+      };
     },
   });
 
@@ -128,7 +138,7 @@ export default function MakeOfferPage({ params }: Props) {
     try {
       // Send offer via API (mock for now)
       const offerData = {
-        creatorAddress: params.creatorId,
+        creatorAddress: creatorId,
         brandAddress: address,
         title: formData.title,
         description: formData.description,
@@ -207,28 +217,28 @@ export default function MakeOfferPage({ params }: Props) {
                     <DollarSign className="w-4 h-4 text-green-500" />
                     <div>
                       <p className="text-white/60 text-xs">Earned</p>
-                      <p className="font-semibold">${(creator.stats.totalEarned / 1000).toFixed(1)}K</p>
+                      <p className="font-semibold">${((creator.stats?.totalEarned || 0) / 1000).toFixed(1)}K</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Eye className="w-4 h-4 text-blue-500" />
                     <div>
                       <p className="text-white/60 text-xs">Views</p>
-                      <p className="font-semibold">{(creator.stats.totalViews / 1000000).toFixed(1)}M</p>
+                      <p className="font-semibold">{((creator.stats?.totalViews || 0) / 1000000).toFixed(1)}M</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Star className="w-4 h-4 text-yellow-500" />
                     <div>
                       <p className="text-white/60 text-xs">AI Rating</p>
-                      <p className="font-semibold">{creator.stats.avgAiRating.toFixed(1)}/10</p>
+                      <p className="font-semibold">{(creator.stats?.avgAiRating || 0).toFixed(1)}/10</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-purple-500" />
                     <div>
                       <p className="text-white/60 text-xs">Success</p>
-                      <p className="font-semibold">{creator.stats.successRate}%</p>
+                      <p className="font-semibold">{creator.stats?.successRate || 0}%</p>
                     </div>
                   </div>
                 </div>

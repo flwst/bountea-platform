@@ -29,9 +29,46 @@ export default function CreatorDirectoryPage() {
   const { data: creators = [], isLoading } = useQuery<Creator[]>({
     queryKey: ['creators'],
     queryFn: async () => {
-      // Mock data for now - replace with actual API call
-      // In real implementation: const response = await api.creator.getAll();
-      return [] as Creator[];
+      try {
+        const response = await api.creator.getAll();
+        
+        // Backend returns {data: [...]}, Axios wraps it in response.data
+        // So we need response.data.data to get the array
+        const creatorsData = Array.isArray(response.data.data) ? response.data.data : [];
+        
+        
+        // Fetch stats for each creator
+        const creatorsWithStats = await Promise.all(
+          creatorsData.map(async (creator: any) => {
+            try {
+              const statsResponse = await api.creator.getStats(creator.wallet);
+              return {
+                ...creator,
+                address: creator.wallet,
+                stats: statsResponse.data.data || statsResponse.data
+              };
+            } catch (error) {
+              // Return creator with empty stats if stats fetch fails
+              return {
+                ...creator,
+                address: creator.wallet,
+                stats: {
+                  totalEarned: 0,
+                  totalViews: 0,
+                  videoCount: 0,
+                  successRate: 0,
+                  avgAiRating: 0
+                }
+              };
+            }
+          })
+        );
+        
+        return creatorsWithStats;
+      } catch (error) {
+        console.error('Failed to fetch creators:', error);
+        return [];
+      }
     },
   });
 
@@ -55,7 +92,7 @@ export default function CreatorDirectoryPage() {
     .filter((creator) => {
       // Min rating filter
       if (filters.minRating !== 'all') {
-        return creator.stats.avgAiRating >= Number(filters.minRating);
+        return (creator.stats?.avgAiRating || 0) >= Number(filters.minRating);
       }
       return true;
     })
@@ -63,13 +100,13 @@ export default function CreatorDirectoryPage() {
       // Sorting
       switch (filters.sortBy) {
         case 'rating':
-          return b.stats.avgAiRating - a.stats.avgAiRating;
+          return (b.stats?.avgAiRating || 0) - (a.stats?.avgAiRating || 0);
         case 'earnings':
-          return b.stats.totalEarned - a.stats.totalEarned;
+          return (b.stats?.totalEarned || 0) - (a.stats?.totalEarned || 0);
         case 'views':
-          return b.stats.totalViews - a.stats.totalViews;
+          return (b.stats?.totalViews || 0) - (a.stats?.totalViews || 0);
         case 'success':
-          return b.stats.successRate - a.stats.successRate;
+          return (b.stats?.successRate || 0) - (a.stats?.successRate || 0);
         default:
           return 0;
       }
@@ -210,7 +247,7 @@ export default function CreatorDirectoryPage() {
                     <div>
                       <p className="text-white/60 text-xs">Earned</p>
                       <p className="font-semibold">
-                        ${(creator.stats.totalEarned / 1000).toFixed(1)}K
+                        ${((creator.stats?.totalEarned || 0) / 1000).toFixed(1)}K
                       </p>
                     </div>
                   </div>
@@ -219,7 +256,7 @@ export default function CreatorDirectoryPage() {
                     <div>
                       <p className="text-white/60 text-xs">Views</p>
                       <p className="font-semibold">
-                        {(creator.stats.totalViews / 1000000).toFixed(1)}M
+                        {((creator.stats?.totalViews || 0) / 1000000).toFixed(1)}M
                       </p>
                     </div>
                   </div>
@@ -228,7 +265,7 @@ export default function CreatorDirectoryPage() {
                     <div>
                       <p className="text-white/60 text-xs">AI Rating</p>
                       <p className="font-semibold">
-                        {creator.stats.avgAiRating.toFixed(1)}/10
+                        {(creator.stats?.avgAiRating || 0).toFixed(1)}/10
                       </p>
                     </div>
                   </div>
@@ -237,7 +274,7 @@ export default function CreatorDirectoryPage() {
                     <div>
                       <p className="text-white/60 text-xs">Success</p>
                       <p className="font-semibold">
-                        {creator.stats.successRate}%
+                        {creator.stats?.successRate || 0}%
                       </p>
                     </div>
                   </div>

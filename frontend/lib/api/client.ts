@@ -82,6 +82,7 @@ export const api = {
   
   // Creator
   creator: {
+    getAll: () => apiClient.get('/creators'),
     getProfile: (address: string) => apiClient.get(`/creators/${address}`),
     getVideos: (address: string) => apiClient.get(`/creators/${address}/videos`),
     getStats: (address: string) => apiClient.get(`/creators/${address}/stats`),

@@ -17,6 +17,15 @@ export function BountyCard({ bounty, onClick }: BountyCardProps) {
   const daysLeft = Math.ceil(
     (new Date(bounty.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
+  
+  // Calculate total reward from milestones
+  const totalReward = bounty.milestones?.reduce(
+    (sum, m) => sum + parseFloat(m.rewardAmount),
+    0
+  ) || 0;
+  
+  // Get primary platform
+  const platform = bounty.platforms?.[0]?.platform || 'youtube';
 
   return (
     <Card
@@ -50,7 +59,7 @@ export function BountyCard({ bounty, onClick }: BountyCardProps) {
             <div>
               <p className="text-muted-foreground">Total Reward</p>
               <p className="font-semibold text-success">
-                ${bounty.totalReward.toLocaleString()}
+                ${totalReward.toLocaleString()}
               </p>
             </div>
           </div>
@@ -79,7 +88,7 @@ export function BountyCard({ bounty, onClick }: BountyCardProps) {
             <Users className="w-4 h-4 text-muted-foreground" />
             <div>
               <p className="text-muted-foreground">Platform</p>
-              <p className="font-semibold capitalize">{bounty.platform}</p>
+              <p className="font-semibold capitalize">{platform}</p>
             </div>
           </div>
         </div>

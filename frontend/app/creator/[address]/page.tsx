@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useWalletStore } from '@/lib/stores/wallet-store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,27 +13,40 @@ import Link from 'next/link';
 import type { Creator, Video } from '@/types';
 
 interface Props {
-  params: { address: string };
+  params: Promise<{ address: string }>;
 }
 
 export default function CreatorProfilePage({ params }: Props) {
+  // Unwrap params Promise (Next.js 15 requirement)
+  const { address } = use(params);
+  
   const { address: connectedAddress, isConnected } = useWalletStore();
-  const isBrand = isConnected && connectedAddress !== params.address;
+  const isBrand = isConnected && connectedAddress !== address;
 
-  // Fetch creator profile
-  const { data: creator, isLoading: creatorLoading } = useQuery<Creator>({
-    queryKey: ['creator-profile', params.address],
+  // Fetch creator profile and stats
+  const { data: creator, isLoading: creatorLoading } = useQuery({
+    queryKey: ['creator-profile', address],
     queryFn: async () => {
-      const response = await api.creator.getProfile(params.address);
-      return response.data;
+      // Fetch both profile and stats in parallel
+      const [profileResponse, statsResponse] = await Promise.all([
+        api.creator.getProfile(address),
+        api.creator.getStats(address)
+      ]);
+      
+      // Merge profile and stats
+      return {
+        ...profileResponse.data,
+        address: profileResponse.data.wallet, // Map wallet to address for frontend
+        stats: statsResponse.data
+      };
     },
   });
 
   // Fetch creator videos
   const { data: videos = [], isLoading: videosLoading } = useQuery<Video[]>({
-    queryKey: ['creator-videos-public', params.address],
+    queryKey: ['creator-videos-public', address],
     queryFn: async () => {
-      const response = await api.creator.getVideos(params.address);
+      const response = await api.creator.getVideos(address);
       return Array.isArray(response.data) ? response.data : [];
     },
   });
@@ -60,14 +74,14 @@ export default function CreatorProfilePage({ params }: Props) {
                       </Badge>
                     )}
                     <p className="text-sm text-white/60">
-                      {params.address.slice(0, 6)}...{params.address.slice(-4)}
+                      {address.slice(0, 6)}...{address.slice(-4)}
                     </p>
                   </div>
 
                   {/* Action Buttons */}
                   {isBrand && (
                     <div className="flex gap-3">
-                      <Link href={`/brand/offer/${params.address}`}>
+                      <Link href={`/brand/offer/${address}`}>
                         <Button>
                           <Mail className="w-4 h-4 mr-2" />
                           Make Offer
@@ -85,7 +99,7 @@ export default function CreatorProfilePage({ params }: Props) {
                       <span className="text-sm text-white/60">Earned</span>
                     </div>
                     <p className="text-2xl font-bold bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] bg-clip-text text-transparent">
-                      ${(creator.stats.totalEarned / 1000).toFixed(1)}K
+                      ${((creator.stats?.totalEarned || 0) / 1000).toFixed(1)}K
                     </p>
                   </div>
 
@@ -95,7 +109,7 @@ export default function CreatorProfilePage({ params }: Props) {
                       <span className="text-sm text-white/60">Views</span>
                     </div>
                     <p className="text-2xl font-bold">
-                      {(creator.stats.totalViews / 1000000).toFixed(1)}M
+                      {((creator.stats?.totalViews || 0) / 1000000).toFixed(1)}M
                     </p>
                   </div>
 
@@ -104,16 +118,16 @@ export default function CreatorProfilePage({ params }: Props) {
                       <VideoIcon className="w-5 h-5 text-purple-500" />
                       <span className="text-sm text-white/60">Videos</span>
                     </div>
-                    <p className="text-2xl font-bold">{creator.stats.videoCount}</p>
+                    <p className="text-2xl font-bold">{creator.stats?.videoCount || 0}</p>
                   </div>
 
                   <div className="p-4 bg-white/5 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <Star className="w-5 h-5 text-yellow-500" />
-                      <span className="text-sm text-white/60">AI Rating</span>
+                      <span className="text-sm text-white/60">Rating</span>
                     </div>
                     <p className="text-2xl font-bold">
-                      {creator.stats.avgAiRating.toFixed(1)}/10
+                      {(creator.stats?.avgAiRating || 0).toFixed(1)}/10
                     </p>
                   </div>
                 </div>
@@ -123,7 +137,7 @@ export default function CreatorProfilePage({ params }: Props) {
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-green-500" />
                     <span className="text-white/60">
-                      Success Rate: <span className="font-semibold">{creator.stats.successRate}%</span>
+                      Success Rate: <span className="font-semibold">{creator.stats?.successRate || 0}%</span>
                     </span>
                   </div>
                 </div>
@@ -178,7 +192,7 @@ export default function CreatorProfilePage({ params }: Props) {
             <p className="text-white/60 mb-6">
               Send them a direct offer with custom terms and rewards
             </p>
-            <Link href={`/brand/offer/${params.address}`}>
+            <Link href={`/brand/offer/${address}`}>
               <Button size="lg" className="bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6]">
                 <Mail className="w-4 h-4 mr-2" />
                 Make an Offer

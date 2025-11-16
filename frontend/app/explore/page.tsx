@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { BountyCard } from '@/components/bounty/bounty-card';
 import { Input } from '@/components/ui/input';
@@ -10,18 +11,26 @@ import { api } from '@/lib/api/client';
 import type { Bounty } from '@/types';
 
 export default function ExplorePage() {
+  const router = useRouter();
+  
   const [filters, setFilters] = useState({
     platform: 'all',
     sortBy: 'deadline',
     search: '',
   });
 
+  const handleBountyClick = (bountyId: number) => {
+    router.push(`/register?bountyId=${bountyId}`);
+  };
+
   // Fetch bounties with TanStack Query
   const { data: bounties = [], isLoading } = useQuery<Bounty[]>({
     queryKey: ['bounties'],
     queryFn: async () => {
       const response = await api.bounties.getAll();
-      return Array.isArray(response.data) ? response.data : [];
+      // Backend returns {data: [...]}, Axios wraps it in response.data
+      // So we need response.data.data to get the array
+      return Array.isArray(response.data.data) ? response.data.data : [];
     },
   });
 
@@ -41,7 +50,7 @@ export default function ExplorePage() {
     .filter((bounty) => {
       // Platform filter
       if (filters.platform !== 'all') {
-        return bounty.platform === filters.platform;
+        return bounty.platforms?.some(p => p.platform === filters.platform);
       }
       return true;
     })
@@ -143,7 +152,11 @@ export default function ExplorePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredBounties.map((bounty) => (
-            <BountyCard key={bounty.id} bounty={bounty} />
+            <BountyCard
+              key={bounty.id}
+              bounty={bounty}
+              onClick={() => handleBountyClick(bounty.id)}
+            />
           ))}
         </div>
       )}

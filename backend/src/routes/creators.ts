@@ -6,7 +6,13 @@ const router = Router();
 
 // Get all creators (public)
 router.get('/', async (_req, res) => {
+  console.log('===== GET /api/creators START =====');
+  console.log('Request received at:', new Date().toISOString());
+  
   try {
+    console.log('Attempting Prisma query...');
+    console.log('Query params: { where: { userType: "creator" } }');
+    
     const creators = await prisma.user.findMany({
       where: { userType: 'creator' },
       select: {
@@ -17,11 +23,21 @@ router.get('/', async (_req, res) => {
         bio: true,
         createdAt: true
       }
-    }).catch(() => []);
+    });
+    
+    console.log('Query completed successfully');
+    console.log('Found creators:', creators.length);
+    if (creators.length > 0) {
+      console.log('First creator:', JSON.stringify(creators[0], null, 2));
+    }
 
     return res.json({ data: creators });
   } catch (error) {
-    return res.json({ data: [] });
+    console.error('===== ERROR in /api/creators =====');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Full error:', error);
+    return res.status(500).json({ error: 'Failed to fetch creators', details: String(error) });
   }
 });
 

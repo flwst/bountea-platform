@@ -14,7 +14,9 @@ export default function HomePage() {
     queryKey: ['videos-feed'],
     queryFn: async () => {
       const response = await api.videos.getAll();
-      return Array.isArray(response.data) ? response.data : [];
+      // Backend returns {data: [...]}, Axios wraps it in response.data
+      // So we need response.data.data to get the array
+      return Array.isArray(response.data.data) ? response.data.data : [];
     },
     refetchInterval: 30000, // Refresh every 30 seconds for live view counts
   });

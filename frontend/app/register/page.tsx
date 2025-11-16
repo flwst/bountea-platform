@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useWalletStore } from '@/lib/stores/wallet-store';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import type { Bounty } from '@/types';
 
 export default function RegisterVideoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { address, isConnected } = useWalletStore();
   const { connect } = useAuth();
 
@@ -34,11 +35,20 @@ export default function RegisterVideoPage() {
     queryKey: ['bounties-active'],
     queryFn: async () => {
       const response = await api.bounties.getAll();
-      const allBounties = Array.isArray(response.data) ? response.data : [];
+      // Backend returns {data: [...]}, Axios wraps it in response.data
+      const allBounties = Array.isArray(response.data.data) ? response.data.data : [];
       // Filter only active bounties
       return allBounties.filter((b: Bounty) => b.status === 'active');
     },
   });
+
+  // Pre-select bounty from URL parameter
+  useEffect(() => {
+    const bountyIdParam = searchParams.get('bountyId');
+    if (bountyIdParam && !selectedBountyId && bounties.length > 0) {
+      setSelectedBountyId(bountyIdParam);
+    }
+  }, [searchParams, bounties, selectedBountyId]);
 
   const selectedBounty = bounties.find((b) => b.id.toString() === selectedBountyId);
 
@@ -194,11 +204,17 @@ export default function RegisterVideoPage() {
                     <SelectValue placeholder="Select a bounty" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bounties.map((bounty) => (
-                      <SelectItem key={bounty.id} value={bounty.id.toString()}>
-                        {bounty.title} - ${bounty.totalReward}
-                      </SelectItem>
-                    ))}
+                    {bounties.map((bounty) => {
+                      const totalReward = bounty.milestones?.reduce(
+                        (sum, m) => sum + parseFloat(m.rewardAmount),
+                        0
+                      ) || 0;
+                      return (
+                        <SelectItem key={bounty.id} value={bounty.id.toString()}>
+                          {bounty.title} - ${totalReward.toLocaleString()}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               )}
@@ -218,9 +234,11 @@ export default function RegisterVideoPage() {
                   <Badge variant="secondary">
                     {selectedBounty.videoCount}/{selectedBounty.maxVideos} slots
                   </Badge>
-                  <Badge variant="secondary">
-                    {selectedBounty.platform}
-                  </Badge>
+                  {selectedBounty.platforms?.[0] && (
+                    <Badge variant="secondary">
+                      {selectedBounty.platforms[0].platform}
+                    </Badge>
+                  )}
                   <Badge variant="secondary">
                     Ends: {new Date(selectedBounty.deadline).toLocaleDateString()}
                   </Badge>
