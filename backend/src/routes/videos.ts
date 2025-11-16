@@ -26,23 +26,33 @@ router.get('/', async (_req, res) => {
           }
         },
         bounty: {
-          select: {
-            id: true,
-            title: true,
-            totalDeposit: true,
-            deadline: true
+          include: {
+            milestones: {
+              orderBy: { milestoneOrder: 'asc' }
+            }
           }
         },
         milestoneClaims: true
       },
       orderBy: { registeredAt: 'desc' },
       take: 50
-    }).catch(() => []);
+    }).catch((err) => {
+      console.error('Video query error:', err);
+      return [];
+    });
 
-    // Transform BigInt to string for JSON
+    // Transform BigInt to string for JSON + map approvalStatus to status
     const serializedVideos = videos.map(video => ({
       ...video,
       currentViews: Number(video.currentViews),
+      status: video.approvalStatus, // Add status field for frontend
+      bounty: {
+        ...video.bounty,
+        milestones: video.bounty.milestones.map(m => ({
+          ...m,
+          viewsRequired: Number(m.viewsRequired)
+        }))
+      },
       milestoneClaims: video.milestoneClaims.map((claim: any) => ({
         ...claim,
         viewsAtClaim: Number(claim.viewsAtClaim)

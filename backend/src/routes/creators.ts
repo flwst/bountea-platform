@@ -1,6 +1,7 @@
 // src/routes/creators.ts
 import { Router } from 'express';
 import { prisma } from '../config/database';
+import { authenticate, requireRole, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -41,8 +42,67 @@ router.get('/', async (_req, res) => {
   }
 });
 
+// Get my stats (authenticated)
+router.get('/me/stats', authenticate, requireRole('creator'), async (req: AuthRequest, res) => {
+  try {
+    const creatorId = req.user!.id;
+    
+    // Get all videos for this creator
+    const videos = await prisma.video.findMany({
+      where: {
+        creatorId
+      },
+      include: {
+        milestoneClaims: true,
+        analyses: {
+          select: {
+            rating: true
+          }
+        }
+      }
+    });
+
+    // Calculate stats
+    const totalEarned = videos.reduce((sum, video) => {
+      const earned = video.milestoneClaims.reduce((claimSum, claim) =>
+        claimSum + Number(claim.rewardAmount), 0
+      );
+      return sum + earned;
+    }, 0);
+
+    const totalViews = videos.reduce((sum, video) =>
+      sum + Number(video.currentViews), 0
+    );
+
+    const approvedVideos = videos.filter(v => v.approvalStatus === 'approved').length;
+    const activeVideos = videos.filter(v => v.approvalStatus === 'approved').length;
+
+    // Calculate average AI rating
+    const ratings = videos.flatMap(v =>
+      v.analyses.map(a => a.rating).filter(r => r !== null)
+    );
+    const avgAiRating = ratings.length > 0
+      ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+      : 0;
+
+    const stats = {
+      totalEarned,
+      totalViews,
+      activeVideos,
+      videoCount: videos.length,
+      successRate: videos.length > 0 ? Math.round((approvedVideos / videos.length) * 100) : 0,
+      avgAiRating: avgAiRating ? Number(avgAiRating.toFixed(1)) : 0
+    };
+
+    return res.json(stats);
+  } catch (error) {
+    console.error('Error fetching my stats:', error);
+    return res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
 // IMPORTANT: More specific routes MUST come before generic :address route
-// Get creator stats (public)
+// Get creator stats by address (public)
 router.get('/:address/stats', async (req, res) => {
   try {
     const creator = await prisma.user.findUnique({
