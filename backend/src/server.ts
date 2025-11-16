@@ -10,6 +10,7 @@ import { errorHandler } from './middleware/error-handler';
 import bountiesRouter from './routes/bounties';
 import videosRouter from './routes/videos';
 import adminRouter from './routes/admin';
+import creatorsRouter from './routes/creators';
 
 const app = express();
 const PORT = env.PORT || 3000;
@@ -42,6 +43,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/bounties', bountiesRouter);
 app.use('/api/videos', videosRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/creators', creatorsRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

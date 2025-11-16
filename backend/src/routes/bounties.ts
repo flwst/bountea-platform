@@ -43,7 +43,16 @@ router.get('/', async (req, res, next) => {
       skip: Number(offset)
     }).catch(() => []);
 
-    res.json({ data: bounties });
+    // Transform BigInt to Number for JSON serialization
+    const serializedBounties = bounties.map(bounty => ({
+      ...bounty,
+      milestones: bounty.milestones.map(m => ({
+        ...m,
+        viewsRequired: Number(m.viewsRequired)
+      }))
+    }));
+
+    res.json({ data: serializedBounties });
   } catch (error) {
     next(error);
   }
@@ -78,7 +87,20 @@ router.get('/:id', async (req, res, next) => {
       throw new AppError(404, 'Bounty not found');
     }
 
-    res.json({ bounty });
+    // Transform BigInt to Number for JSON serialization
+    const serializedBounty = {
+      ...bounty,
+      milestones: bounty.milestones.map(m => ({
+        ...m,
+        viewsRequired: Number(m.viewsRequired)
+      })),
+      videos: bounty.videos.map(v => ({
+        ...v,
+        currentViews: Number(v.currentViews)
+      }))
+    };
+
+    res.json({ bounty: serializedBounty });
   } catch (error) {
     next(error);
   }
@@ -136,7 +158,16 @@ router.post('/', authenticate, requireRole('brand'), async (req: AuthRequest, re
       }
     });
 
-    res.status(201).json({ bounty });
+    // Transform BigInt to Number for JSON serialization
+    const serializedBounty = {
+      ...bounty,
+      milestones: bounty.milestones.map(m => ({
+        ...m,
+        viewsRequired: Number(m.viewsRequired)
+      }))
+    };
+
+    res.status(201).json({ bounty: serializedBounty });
   } catch (error) {
     next(error);
   }
@@ -157,7 +188,16 @@ router.get('/brand/my-bounties', authenticate, requireRole('brand'), async (req:
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json({ bounties });
+    // Transform BigInt to Number for JSON serialization
+    const serializedBounties = bounties.map(bounty => ({
+      ...bounty,
+      milestones: bounty.milestones.map(m => ({
+        ...m,
+        viewsRequired: Number(m.viewsRequired)
+      }))
+    }));
+
+    res.json({ bounties: serializedBounties });
   } catch (error) {
     next(error);
   }
