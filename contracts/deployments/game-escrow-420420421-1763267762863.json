@@ -1,0 +1,17 @@
+{
+  "network": "polkadotAssetHubTestnet",
+  "chainId": "420420421",
+  "timestamp": "2025-11-16T04:36:02.863Z",
+  "deployer": "0x83c55956F1dbcbEE94E6FE20C606cdeDa5B10E3a",
+  "contracts": {
+    "GameEscrow": "0xd2cBe67AD6ecc0618F867b27CF571D4afca6b3c5"
+  },
+  "config": {
+    "maxTVLLimit": "1000000.0",
+    "roles": {
+      "admin": "0x83c55956F1dbcbEE94E6FE20C606cdeDa5B10E3a",
+      "oracle": "0x83c55956F1dbcbEE94E6FE20C606cdeDa5B10E3a",
+      "emergency": "0x83c55956F1dbcbEE94E6FE20C606cdeDa5B10E3a"
+    }
+  }
+}

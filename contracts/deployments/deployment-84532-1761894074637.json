@@ -1,0 +1,22 @@
+{
+  "network": "baseSepolia",
+  "chainId": "84532",
+  "timestamp": "2025-10-31T07:01:14.637Z",
+  "deployer": "0xFAB6b22Fc40f3d8BFD8380C435DE3770A51765C4",
+  "contracts": {
+    "MockERC20": "0xE02E0dEa9F850D88E1329550D9FC8D98aF541f55",
+    "GameEscrow": "0x90c15373A1db6c75A55CfD3743249D56136Cb86a"
+  },
+  "config": {
+    "mockTokenSymbol": "USDC",
+    "mockTokenDecimals": 6,
+    "deployerBalance": "100000",
+    "maxTVLLimit": "1000000",
+    "tokenLimit": "1000000",
+    "roles": {
+      "admin": "0xFAB6b22Fc40f3d8BFD8380C435DE3770A51765C4",
+      "oracle": "0xFAB6b22Fc40f3d8BFD8380C435DE3770A51765C4",
+      "emergency": "0xFAB6b22Fc40f3d8BFD8380C435DE3770A51765C4"
+    }
+  }
+}
