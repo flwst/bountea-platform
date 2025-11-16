@@ -20,15 +20,14 @@ export default function CreatorDashboardPage() {
   const queryClient = useQueryClient();
   const [updatingVideo, setUpdatingVideo] = useState<number | null>(null);
 
-  // Fetch creator stats
+  // Fetch my stats using authenticated endpoint
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
-    queryKey: ['creator-stats', address],
+    queryKey: ['my-stats'],
     queryFn: async () => {
-      if (!address) return {} as DashboardStats;
-      const response = await api.creator.getStats(address);
+      const response = await apiClient.get('/creators/me/stats');
       return response.data;
     },
-    enabled: !!address,
+    enabled: isConnected,
   });
 
   // Fetch creator's own videos using authenticated endpoint
