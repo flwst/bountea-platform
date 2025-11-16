@@ -130,9 +130,9 @@ router.get('/:address/videos', async (req, res) => {
     }
 
     const videos = await prisma.video.findMany({
-      where: { 
-        creatorId: creator.id,
-        approvalStatus: 'approved'
+      where: {
+        creatorId: creator.id
+        // Show all videos (pending, approved, rejected) for the creator
       },
       include: {
         bounty: {

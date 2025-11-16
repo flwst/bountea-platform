@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { DollarSign, Video, Eye, Plus, TrendingUp, RefreshCw } from 'lucide-react';
-import { api } from '@/lib/api/client';
+import { api, apiClient } from '@/lib/api/client';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import type { DashboardStats, Video as VideoType } from '@/types';
@@ -31,15 +31,31 @@ export default function CreatorDashboardPage() {
     enabled: !!address,
   });
 
-  // Fetch creator videos
+  // Fetch creator's own videos using authenticated endpoint
   const { data: videos = [], isLoading: videosLoading } = useQuery<VideoType[]>({
-    queryKey: ['creator-videos', address],
+    queryKey: ['my-videos'],
     queryFn: async () => {
-      if (!address) return [];
-      const response = await api.creator.getVideos(address);
-      return Array.isArray(response.data) ? response.data : [];
+      const response = await apiClient.get('/videos/my-videos');
+      const videosData = response.data.videos || [];
+      
+      // Transform data
+      return videosData.map((video: any) => ({
+        ...video,
+        id: Number(video.id),
+        currentViews: Number(video.currentViews),
+        status: video.approvalStatus || 'pending',
+        aiAnalysis: video.analyses?.[0] || null,
+        bounty: {
+          ...video.bounty,
+          milestones: video.bounty.milestones.map((m: any) => ({
+            ...m,
+            viewsRequired: Number(m.viewsRequired),
+            claimed: video.milestoneClaims?.some((c: any) => c.milestoneId === m.id) || false
+          }))
+        }
+      }));
     },
-    enabled: !!address,
+    enabled: isConnected,
   });
 
   // Handle update views

@@ -181,12 +181,34 @@ router.get('/my-videos', authenticate, requireRole('creator'), async (req: AuthR
             milestones: true
           }
         },
-        milestoneClaims: true
+        milestoneClaims: true,
+        analyses: {
+          select: {
+            rating: true
+          }
+        }
       },
       orderBy: { registeredAt: 'desc' }
     });
 
-    res.json({ videos });
+    // Serialize BigInt for JSON
+    const serializedVideos = videos.map(video => ({
+      ...video,
+      currentViews: Number(video.currentViews),
+      bounty: {
+        ...video.bounty,
+        milestones: video.bounty.milestones.map(m => ({
+          ...m,
+          viewsRequired: Number(m.viewsRequired)
+        }))
+      },
+      milestoneClaims: video.milestoneClaims.map(claim => ({
+        ...claim,
+        viewsAtClaim: Number(claim.viewsAtClaim)
+      }))
+    }));
+
+    res.json({ videos: serializedVideos });
   } catch (error) {
     next(error);
   }
